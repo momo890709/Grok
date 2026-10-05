@@ -125,6 +125,9 @@ _CORE_PERSON_ALIASES = {
 }
 
 
+_CORE_PERSON_IDS = frozenset(_CORE_PERSON_ALIASES.values())
+
+
 class EncodingContractError(ValueError):
     """A model response cannot be safely interpreted as Memory V2 events."""
 
@@ -550,7 +553,7 @@ def build_encoding_messages(
         "Use unresolved when neither rule is supported, leaving occurred_at and "
         "calendar_date empty. event_type must be a stable allowed category; put specific "
         "details in summary, never invent a one-off event type.\n"
-        "Use only canonical core person IDs: human for U/Human and k for Agent. "
+        "Use only canonical core person IDs: human for U/Human and agent for Agent. "
         "Use human as primary_subject_id only when that episode cites at least one U row "
         "that directly reports Human's occurrence or records Human's action. A Agent row that "
         "mentions, asks about, imagines, or reacts to Human does not by itself support an "
@@ -562,7 +565,7 @@ def build_encoding_messages(
         "occurrence is only inferred, account its rows as non-event instead.\n"
         f"Final hard checks before returning: episodes.length <= {MAX_EPISODES_PER_BATCH}; "
         "for every episode with primary_subject_id=human, source_refs must include at least "
-        "one U row; when all source_refs are Agent rows, primary_subject_id must be k (or the "
+        "one U row; when all source_refs are Agent rows, primary_subject_id must be agent (or the "
         "rows must be classified as non-event); "
         "every input source ref appears in exactly one accounting class: episode evidence, "
         "non_event_source_refs, or overflow_source_refs; no source ref appears across those "
@@ -806,6 +809,10 @@ def parse_encoding_output(
         if not subject_id or len(subject_id) > 120:
             raise EncodingContractError(
                 "primary_subject_id must be a bounded non-empty string"
+            )
+        if subject_id not in _CORE_PERSON_IDS:
+            raise EncodingContractError(
+                "primary_subject_id must be a canonical core person ID"
             )
         if subject_id not in participant_ids:
             raise EncodingContractError(
