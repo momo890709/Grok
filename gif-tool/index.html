@@ -1,0 +1,395 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>视频转 GIF</title>
+<style>
+  :root {
+    --bg: #f6f4f0; --card: #ffffff; --ink: #1f1d1a; --muted: #77716a;
+    --line: #e6e1d9; --accent: #d9534f; --accent-ink: #fff; --ok: #2f8f5b;
+    --soft: #f1ede6; --radius: 14px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #161514; --card: #201f1d; --ink: #ece8e2; --muted: #9a948c;
+      --line: #34312d; --accent: #ef6b5f; --soft: #2a2825; --ok: #5cc28a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 14px/1.55 -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", sans-serif;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 32px 16px 80px; }
+  header { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+  h1 { font-size: 24px; margin: 0; letter-spacing: .5px; }
+  .badge { font-size: 12px; padding: 2px 10px; border-radius: 99px; background: var(--soft); color: var(--muted); }
+  .badge.bad { background: var(--accent); color: var(--accent-ink); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; margin-bottom: 16px; }
+
+  .tabs { display: inline-flex; background: var(--soft); border-radius: 10px; padding: 3px; margin-bottom: 14px; }
+  .tabs button { border: 0; background: transparent; color: var(--muted); padding: 7px 18px; border-radius: 8px; font: inherit; cursor: pointer; }
+  .tabs button.on { background: var(--card); color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.08); font-weight: 600; }
+
+  textarea, input[type=text], input[type=number], select {
+    width: 100%; font: inherit; color: var(--ink); background: var(--bg);
+    border: 1px solid var(--line); border-radius: 10px; padding: 9px 11px; outline: none;
+  }
+  textarea:focus, input:focus, select:focus { border-color: var(--accent); }
+  textarea { min-height: 84px; resize: vertical; font-family: ui-monospace, Menlo, monospace; font-size: 13px; }
+  .hint { color: var(--muted); font-size: 12px; margin-top: 6px; }
+  kbd { font: 11px ui-monospace, Menlo, monospace; background: var(--soft); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; }
+
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .btn {
+    border: 1px solid var(--line); background: var(--card); color: var(--ink);
+    padding: 8px 16px; border-radius: 10px; font: inherit; cursor: pointer; white-space: nowrap;
+  }
+  .btn:hover { border-color: var(--muted); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+  .btn.primary:hover { filter: brightness(1.05); }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+  .btn.sm { padding: 4px 10px; font-size: 12px; border-radius: 8px; }
+
+  .settings { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; }
+  .settings label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .fps-val { color: var(--accent); font-weight: 700; font-variant-numeric: tabular-nums; }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+  .presets { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+  .presets button { font-size: 11px; padding: 2px 8px; border-radius: 99px; border: 1px solid var(--line); background: transparent; color: var(--muted); cursor: pointer; }
+  .presets button.on { border-color: var(--accent); color: var(--accent); }
+  .span2 { grid-column: span 2; }
+  @media (max-width: 520px) { .span2 { grid-column: auto; } }
+
+  .listhead { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+  .listhead .meta { color: var(--muted); font-size: 13px; }
+  .item {
+    display: grid; grid-template-columns: 22px 150px 1fr auto; gap: 14px; align-items: center;
+    padding: 12px 0; border-top: 1px solid var(--line);
+  }
+  .item:first-of-type { border-top: 0; }
+  .item input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); }
+  .thumb { width: 150px; aspect-ratio: 16/9; background: #000; border-radius: 8px; overflow: hidden; position: relative; }
+  .thumb video, .thumb img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .thumb .tag { position: absolute; left: 6px; top: 6px; font-size: 11px; padding: 0 6px; border-radius: 6px; background: rgba(0,0,0,.6); color: #fff; }
+  .name { font-weight: 600; word-break: break-all; }
+  .sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .status { font-size: 12px; text-align: right; min-width: 120px; }
+  .status .ok { color: var(--ok); font-weight: 600; }
+  .status .err { color: var(--accent); white-space: pre-wrap; text-align: left; display: block; max-width: 260px; }
+  .status .run { color: var(--muted); }
+  .spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -2px; margin-right: 4px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (max-width: 640px) {
+    .item { grid-template-columns: 22px 1fr; }
+    .thumb { grid-column: 2; width: 100%; }
+    .item .info, .item .status { grid-column: 2; text-align: left; }
+  }
+  .empty { color: var(--muted); text-align: center; padding: 28px 0; }
+  .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 10px; font-size: 13px; opacity: 0; transition: opacity .2s; pointer-events: none; max-width: 90vw; }
+  .toast.show { opacity: 1; }
+  .errors { color: var(--accent); font-size: 12px; margin-top: 8px; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>视频转 GIF</h1>
+    <span class="badge" id="health">检查 ffmpeg…</span>
+  </header>
+
+  <div class="card">
+    <div class="tabs">
+      <button class="on" data-tab="video">视频路径</button>
+      <button data-tab="pptx">PPT 提取</button>
+    </div>
+
+    <div id="tab-video">
+      <textarea id="videoPaths" placeholder="/Users/j_momo/Cache/chat/file/202610/视频1-cut.mp4&#10;一行一个，可以一次贴好几个"></textarea>
+      <div class="hint">Finder 里选中文件按 <kbd>⌥</kbd><kbd>⌘</kbd><kbd>C</kbd> 就是拷贝路径，带引号、带 <code>\ </code> 转义的都能认。</div>
+    </div>
+    <div id="tab-pptx" hidden>
+      <input type="text" id="pptxPath" placeholder="/Users/j_momo/Desktop/某个演示.pptx">
+      <div class="hint">会把嵌入的视频全拆出来，按页码排好；链接到外部的视频只要文件还在也会列出来。GIF 默认存到 PPT 旁边的 <code>xxx_gifs</code> 文件夹。</div>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <button class="btn primary" id="loadBtn">读取</button>
+      <span class="hint" id="loadHint" style="margin:0"></span>
+    </div>
+    <div class="errors" id="loadErrors"></div>
+  </div>
+
+  <div class="card">
+    <div class="settings">
+      <div class="span2">
+        <label>帧率 <span class="fps-val" id="fpsVal">6</span> fps（越低抽帧越狠）</label>
+        <input type="range" id="fps" min="2" max="20" step="1" value="6">
+        <div class="presets" id="fpsPresets">
+          <button data-v="3">鬼畜 3</button>
+          <button data-v="4">狠狠抽 4</button>
+          <button data-v="6" class="on">抽帧 6</button>
+          <button data-v="10">稍顺 10</button>
+          <button data-v="15">流畅 15</button>
+        </div>
+      </div>
+      <div>
+        <label>宽度</label>
+        <select id="width">
+          <option value="320">320 px（最小）</option>
+          <option value="480" selected>480 px</option>
+          <option value="640">640 px</option>
+          <option value="800">800 px</option>
+          <option value="0">原始尺寸</option>
+        </select>
+      </div>
+      <div>
+        <label>颜色数</label>
+        <select id="colors">
+          <option value="32">32（复古、很小）</option>
+          <option value="64">64</option>
+          <option value="128" selected>128</option>
+          <option value="256">256（最清晰）</option>
+        </select>
+      </div>
+      <div>
+        <label>抖动</label>
+        <select id="dither">
+          <option value="bayer" selected>bayer（体积小）</option>
+          <option value="sierra2_4a">sierra（细腻）</option>
+          <option value="floyd_steinberg">floyd（颗粒感）</option>
+          <option value="none">无（色块感）</option>
+        </select>
+      </div>
+      <div>
+        <label>速度</label>
+        <select id="speed">
+          <option value="0.5">0.5×</option>
+          <option value="1" selected>1×</option>
+          <option value="1.5">1.5×</option>
+          <option value="2">2×</option>
+          <option value="3">3×</option>
+        </select>
+      </div>
+      <div>
+        <label>从第几秒开始</label>
+        <input type="number" id="start" min="0" step="0.1" placeholder="0">
+      </div>
+      <div>
+        <label>到第几秒结束</label>
+        <input type="number" id="end" min="0" step="0.1" placeholder="到结尾">
+      </div>
+      <div class="span2">
+        <label>输出文件夹（留空 = 默认位置）</label>
+        <input type="text" id="outdir" placeholder="视频：放在原视频旁边　PPT：放在 xxx_gifs 文件夹">
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="listhead">
+      <div class="row">
+        <label class="row" style="gap:6px;cursor:pointer">
+          <input type="checkbox" id="checkAll" style="width:18px;height:18px;accent-color:var(--accent)"> 全选
+        </label>
+        <span class="meta" id="listMeta">还没有视频</span>
+      </div>
+      <button class="btn primary" id="convertBtn" disabled>转换选中</button>
+    </div>
+    <div id="list"><div class="empty">在上面贴路径，点「读取」</div></div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const state = { tab: "video", items: [], busy: false, platform: "" };
+
+const fmtSize = b => b < 1024 ? b + " B" : b < 1048576 ? (b / 1024).toFixed(0) + " KB" : (b / 1048576).toFixed(1) + " MB";
+const fmtDur = s => { if (!s) return "?"; const m = Math.floor(s / 60), r = (s % 60).toFixed(1); return m ? `${m}:${r.padStart(4, "0")}` : `${r}s`; };
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+function toast(msg) {
+  const t = $("#toast"); t.textContent = msg; t.classList.add("show");
+  clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove("show"), 2600);
+}
+
+async function api(path, body) {
+  const r = await fetch(path, body === undefined ? {} : {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+  });
+  const data = await r.json();
+  if (!r.ok || data.error) throw new Error(data.error || r.statusText);
+  return data;
+}
+
+// ── 健康检查 ──
+api("/api/health").then(h => {
+  state.platform = h.platform;
+  const el = $("#health");
+  if (h.ffmpeg && h.ffprobe) el.textContent = "ffmpeg 就绪";
+  else { el.textContent = "没找到 ffmpeg — 终端跑 brew install ffmpeg"; el.classList.add("bad"); }
+}).catch(() => { $("#health").textContent = "服务没连上"; $("#health").classList.add("bad"); });
+
+// ── 页签 ──
+document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => {
+  state.tab = b.dataset.tab;
+  document.querySelectorAll(".tabs button").forEach(x => x.classList.toggle("on", x === b));
+  $("#tab-video").hidden = state.tab !== "video";
+  $("#tab-pptx").hidden = state.tab !== "pptx";
+});
+
+// ── 帧率 ──
+function setFps(v) {
+  $("#fps").value = v; $("#fpsVal").textContent = v;
+  document.querySelectorAll("#fpsPresets button").forEach(b => b.classList.toggle("on", b.dataset.v == v));
+  refreshSubs();
+}
+$("#fps").oninput = e => setFps(e.target.value);
+document.querySelectorAll("#fpsPresets button").forEach(b => b.onclick = () => setFps(b.dataset.v));
+["#start", "#end", "#speed"].forEach(s => $(s).addEventListener("input", refreshSubs));
+
+// ── 读取 ──
+async function load() {
+  $("#loadErrors").textContent = "";
+  $("#loadBtn").disabled = true;
+  $("#loadHint").innerHTML = '<span class="spinner"></span>读取中…';
+  try {
+    let data;
+    if (state.tab === "video") {
+      const paths = $("#videoPaths").value;
+      if (!paths.trim()) throw new Error("先贴个路径");
+      data = await api("/api/videos", { paths });
+      if (data.errors?.length) $("#loadErrors").textContent = data.errors.join("\n");
+    } else {
+      const path = $("#pptxPath").value;
+      if (!path.trim()) throw new Error("先贴 PPT 路径");
+      data = await api("/api/pptx", { path });
+      if (!data.items.length) throw new Error("这个 PPT 里没找到视频");
+    }
+    state.items = data.items.map(it => ({ ...it, checked: true, status: "idle" }));
+    $("#loadHint").textContent = data.outdir ? `GIF 默认输出到：${data.outdir}` : "";
+    render();
+  } catch (e) {
+    $("#loadHint").textContent = "";
+    $("#loadErrors").textContent = e.message;
+  } finally {
+    $("#loadBtn").disabled = false;
+  }
+}
+$("#loadBtn").onclick = load;
+$("#pptxPath").addEventListener("keydown", e => e.key === "Enter" && load());
+$("#videoPaths").addEventListener("keydown", e => (e.metaKey || e.ctrlKey) && e.key === "Enter" && load());
+
+// ── 列表 ──
+function frameEstimate(it) {
+  const fps = +$("#fps").value, speed = +$("#speed").value || 1;
+  const s = +$("#start").value || 0, e = +$("#end").value || 0;
+  let d = it.duration || 0;
+  if (e > s) d = Math.min(d || e, e) - s; else d -= s;
+  return d > 0 ? Math.round(d / speed * fps) : null;
+}
+
+function statusHtml(it) {
+  if (it.status === "run") return '<span class="run"><span class="spinner"></span>转换中…</span>';
+  if (it.status === "queued") return '<span class="run">排队中</span>';
+  if (it.status === "err") return `<span class="err">${esc(it.error)}</span>`;
+  if (it.status === "done") {
+    const reveal = state.platform === "darwin" ? "在 Finder 中显示" : "打开文件夹";
+    return `<div class="ok">✓ ${fmtSize(it.gifSize)}</div>
+      <div class="row" style="justify-content:flex-end;gap:6px;margin-top:4px">
+        <a class="btn sm" href="/gif?id=${it.id}&t=${it.t}" target="_blank">预览</a>
+        <button class="btn sm" data-reveal="${it.id}">${reveal}</button>
+      </div>`;
+  }
+  return "";
+}
+
+function subText(it) {
+  const bits = [];
+  if (it.slides?.length) bits.push("第 " + it.slides.join("、") + " 页");
+  else if (it.slides) bits.push("没被任何页引用");
+  if (it.source === "linked") bits.push("外链视频");
+  bits.push(fmtDur(it.duration));
+  if (it.width) bits.push(`${it.width}×${it.height}`);
+  bits.push(fmtSize(it.size));
+  const fr = frameEstimate(it);
+  if (fr) bits.push(`约 ${fr} 帧`);
+  return bits.join(" · ");
+}
+
+// 调参数时只改文字，不重建 <video>
+function refreshSubs() {
+  document.querySelectorAll("#list .item .sub").forEach((el, i) => el.textContent = subText(state.items[i]));
+}
+
+function render() {
+  const list = $("#list");
+  if (!state.items.length) {
+    list.innerHTML = '<div class="empty">在上面贴路径，点「读取」</div>';
+  } else {
+    list.innerHTML = state.items.map((it, i) => {
+      const media = it.status === "done"
+        ? `<img src="/gif?id=${it.id}&t=${it.t}" alt="">`
+        : `<video src="/media?id=${it.id}#t=0.1" muted loop playsinline preload="metadata"></video>`;
+      const tag = it.slides?.length ? `<span class="tag">P${it.slides[0]}</span>` : "";
+      return `<div class="item">
+        <input type="checkbox" data-i="${i}" ${it.checked ? "checked" : ""} ${state.busy ? "disabled" : ""}>
+        <div class="thumb">${media}${tag}</div>
+        <div class="info"><div class="name">${esc(it.name)}</div><div class="sub">${esc(subText(it))}</div></div>
+        <div class="status">${statusHtml(it)}</div>
+      </div>`;
+    }).join("");
+  }
+  const n = state.items.filter(x => x.checked).length;
+  $("#listMeta").textContent = state.items.length ? `共 ${state.items.length} 个，已选 ${n} 个` : "还没有视频";
+  $("#checkAll").checked = state.items.length > 0 && n === state.items.length;
+  $("#checkAll").indeterminate = n > 0 && n < state.items.length;
+  $("#convertBtn").disabled = state.busy || !n;
+  $("#convertBtn").textContent = state.busy ? "转换中…" : `转换选中（${n}）`;
+}
+
+$("#list").addEventListener("change", e => {
+  const i = e.target.dataset.i;
+  if (i !== undefined) { state.items[i].checked = e.target.checked; render(); }
+});
+$("#list").addEventListener("mouseover", e => { const v = e.target.closest(".thumb")?.querySelector("video"); v && v.play().catch(() => {}); });
+$("#list").addEventListener("mouseout", e => { const v = e.target.closest(".thumb")?.querySelector("video"); v && v.pause(); });
+$("#list").addEventListener("click", async e => {
+  const id = e.target.dataset?.reveal;
+  if (id) { try { await api("/api/reveal", { id }); } catch (err) { toast(err.message); } }
+});
+$("#checkAll").onchange = e => { state.items.forEach(x => x.checked = e.target.checked); render(); };
+
+// ── 转换 ──
+$("#convertBtn").onclick = async () => {
+  const todo = state.items.filter(x => x.checked);
+  if (!todo.length) return;
+  const options = {
+    fps: +$("#fps").value, width: +$("#width").value, colors: +$("#colors").value,
+    dither: $("#dither").value, speed: +$("#speed").value,
+    start: +$("#start").value || 0, end: +$("#end").value || 0,
+    outdir: $("#outdir").value.trim(),
+  };
+  state.busy = true;
+  todo.forEach(x => x.status = "queued");
+  render();
+  let ok = 0;
+  for (const it of todo) {
+    it.status = "run"; render();
+    try {
+      const r = await api("/api/convert", { id: it.id, options });
+      Object.assign(it, { status: "done", gifSize: r.size, output: r.output, t: Date.now() });
+      ok++;
+    } catch (e) {
+      Object.assign(it, { status: "err", error: e.message });
+    }
+    render();
+  }
+  state.busy = false;
+  render();
+  toast(ok === todo.length ? `搞定，${ok} 个 GIF 都好了` : `完成 ${ok}/${todo.length}，失败的看右边报错`);
+};
+</script>
+</body>
+</html>
